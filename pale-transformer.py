@@ -88,18 +88,18 @@ class PS_Attention(nn.Module):
         x = self.proj_drop(x)
         return x
     
-    def axis_attention(self, q, k, v, bs):
-        B,C,H,W = q.shape
+    def axis_attention(self, q, k, v, B):
+        B_,C,H,W = q.shape
 
-        q = q.reshape([B,C,-1]).reshape(B, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
-        k = k.reshape([B,C,-1]).reshape(B, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
-        v = v.reshape([B,C,-1]).reshape(B, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
+        q = q.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
+        k = k.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
+        v = v.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
         
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(2, 3).reshape([B,C,-1]).reshape([bs,-1,C,H,W])
+        x = (attn @ v).transpose(2, 3).reshape([B_,C,-1]).reshape([B,-1,C,H,W])
         return x
     
     def img2pale(self, x, length, axis):
