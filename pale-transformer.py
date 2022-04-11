@@ -2,6 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class Channel_Layernorm(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.ln = nn.LayerNorm(dim)
+        
+    def forward(self, x):
+        x = x.permute(0, 2, 3, 1)
+        x = self.ln(x)
+        x = x.permute(0, 3, 1, 2)
+        return x
+
 def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: bool = True):
     if drop_prob == 0. or not training:
         return x
@@ -115,7 +126,7 @@ class PS_Attention(nn.Module):
 
 class PS_Block(nn.Module):
     def __init__(self, dim, cpe_kernel_size=3, att_kernel_size=3, pale_size=7, num_heads=8, mlp_ratio=4., qkv_bias=False,
-                 qk_scale=None, drop=0., attn_drop=0.,drop_path=0., act_layer=nn.GELU ,norm_layer=nn.LayerNorm):
+                 qk_scale=None, drop=0., attn_drop=0.,drop_path=0., act_layer=nn.GELU ,norm_layer=Channel_Layernorm):
         super().__init__()
         self.cpe = nn.Conv2d(dim, dim, cpe_kernel_size, 1, cpe_kernel_size//2, groups=dim)
         self.norm1 = norm_layer(dim)
@@ -128,8 +139,8 @@ class PS_Block(nn.Module):
         
     def forward(self, x):
         x = self.cpe(x) + x
-        x = x + self.drop_path(self.attn(self.norm1(x.transpose(1,3)).transpose(1,3)))
-        x = x + self.drop_path(self.mlp(self.norm2(x.transpose(1,3)).transpose(1,3)))
+        x = x + self.drop_path(self.attn(self.norm1(x)))
+        x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
     
 class PS_Transformer(nn.Module):
@@ -211,7 +222,7 @@ args = {
 'attn_drop':0.,
 'drop_path':0.,
 'act_layer':nn.GELU,
-'norm_layer':nn.LayerNorm}
+'norm_layer':Channel_Layernorm}
 
 def get_n_params(model):
     pp=0
