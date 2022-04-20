@@ -8,9 +8,9 @@ class Channel_Layernorm(nn.Module):
         self.ln = nn.LayerNorm(dim)
         
     def forward(self, x):
-        x = x.permute(0, 2, 3, 1)
+        x = x.permute(0, 2, 3, 1).contiguous()
         x = self.ln(x)
-        x = x.permute(0, 3, 1, 2)
+        x = x.permute(0, 3, 1, 2).contiguous()
         return x
 
 def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: bool = True):
@@ -102,15 +102,15 @@ class PS_Attention(nn.Module):
     def axis_attention(self, q, k, v, B):
         B_,C,H,W = q.shape
 
-        q = q.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
-        k = k.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
-        v = v.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2)
+        q = q.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2).contiguous()
+        k = k.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2).contiguous()
+        v = v.reshape([B_,C,-1]).reshape(B_, self.num_heads, C // self.num_heads, -1).permute(0,1,3,2).contiguous()
         
-        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(2, 3).reshape([B_,C,-1]).reshape([B,-1,C,H,W])
+        x = (attn @ v).transpose(2, 3).contiguous().reshape([B_,C,-1]).reshape([B,-1,C,H,W])
         return x
     
     def img2pale(self, x, length, axis):
